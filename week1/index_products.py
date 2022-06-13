@@ -60,9 +60,25 @@ def get_opensearch():
     auth = ('admin', 'admin')
 
     #### Step 2.a: Create a connection to OpenSearch
-    client = None
-    return client
+    from opensearchpy import OpenSearch
 
+    # Create the client with SSL/TLS enabled, but hostname and certificate verification disabled.
+    client = OpenSearch(
+        hosts=[{'host': host, 'port': port}],
+        http_compress=True,  # enables gzip compression for request bodies
+        http_auth=auth,
+        # client_cert = client_cert_path,
+        # client_key = client_key_path,
+        use_ssl=True,
+        verify_certs=False,
+        ssl_assert_hostname=False,
+        ssl_show_warn=False,
+    )
+
+    # Do a few checks before we start indexing:
+    print(client.cat.health())
+    print(client.cat.indices())
+    return client
 
 @click.command()
 @click.option('--source_dir', '-s', help='XML files source directory')
@@ -70,7 +86,7 @@ def get_opensearch():
 def main(source_dir: str, index_name: str):
     client = get_opensearch()
     # To test on a smaller set of documents, change this glob to be more restrictive than *.xml
-    files = glob.glob(source_dir + "/*.xml")
+    files = glob.glob(source_dir + "/products_0001*.xml") # TODO change back to *.xml
     docs_indexed = 0
     tic = time.perf_counter()
     for file in files:
@@ -90,11 +106,20 @@ def main(source_dir: str, index_name: str):
                 continue
 
             #### Step 2.b: Create a valid OpenSearch Doc and bulk index 2000 docs at a time
-            the_doc = None
+            the_doc = {'_index': index_name, '_source': doc}
             docs.append(the_doc)
+            if len(docs) == 0:
+                bulk(client, docs, request_timeout=60)
+                docs = []
+                docs_indexed += 2000
+        if len(docs) > 0:
+            bulk(client, docs, request_timeout=60)
+            docs_indexed += len(docs)
+
     toc = time.perf_counter()
     logger.info(f'Done. Total docs: {docs_indexed}.  Total time: {((toc - tic) / 60):0.3f} mins.')
 
 
 if __name__ == "__main__":
+    print("\n\n\nSTART")
     main()

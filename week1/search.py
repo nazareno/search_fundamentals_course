@@ -94,10 +94,14 @@ def query():
     print("query obj: {}".format(query_obj))
 
     #### Step 4.b.ii
-    response = None   # TODO: Replace me with an appropriate call to OpenSearch
+    response = opensearch.search(
+        body = query_obj,
+        index = 'bbuy_products'
+    )
+
     # Postprocess results here if you so desire
 
-    #print(response)
+    # print(response)
     if error is None:
         return render_template("search_results.jinja2", query=user_query, search_response=response,
                                display_filters=display_filters, applied_filters=applied_filters,
@@ -111,10 +115,51 @@ def create_query(user_query, filters, sort="_score", sortDir="desc"):
     query_obj = {
         'size': 10,
         "query": {
-            "match_all": {} # Replace me with a query that both searches and filters
+            "bool": {
+                "must": {
+                    "query_string": {
+                        "fields": ["name^4", "shortDescription^2", "longDescription", "department"],
+                        "query": user_query,
+                        "phrase_slop": 3
+                    }
+                },
+                "filter": filters
+            }
         },
+        "sort": sort,
         "aggs": {
-            #### Step 4.b.i: create the appropriate query and aggregations here
+            'aggs': {
+                "regularPrice": {
+                        "range": {
+                            "field": "regularPrice",
+                            "ranges": [
+                                { "key": "$", "to": 100.0 },
+                                { "key": "$$", "from": 100.0, "to": 250.0 },
+                                { "key": "$$$", "from": 250.0, "to": 500.0 },
+                                { "key": "$$$$", "from": 500.0, "to": 10000.0 }
+                            ]
+                        }
+                    },
+                "department": {
+                    "terms": {
+                        "field": "department.keyword",
+                        "size": 10,
+                        "min_doc_count": 0
+                    }
+                },
+                "missing_images": {
+                    "missing": {
+                        "field": "images.keyword"
+                    }
+                }
+            },
+        "highlight": {
+            "fields": {
+            "name": {},
+            "shortDescription": {},
+            "longDescription": {}
+            }
+        }
 
         }
     }
