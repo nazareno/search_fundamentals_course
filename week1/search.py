@@ -126,41 +126,38 @@ def create_query(user_query, filters, sort="_score", sortDir="desc"):
                 "filter": filters
             }
         },
-        "sort": sort,
+        "sort": [{sort: {"order": sortDir}}],
         "aggs": {
-            'aggs': {
-                "regularPrice": {
-                        "range": {
-                            "field": "regularPrice",
-                            "ranges": [
-                                { "key": "$", "to": 100.0 },
-                                { "key": "$$", "from": 100.0, "to": 250.0 },
-                                { "key": "$$$", "from": 250.0, "to": 500.0 },
-                                { "key": "$$$$", "from": 500.0, "to": 10000.0 }
-                            ]
-                        }
-                    },
-                "department": {
-                    "terms": {
-                        "field": "department.keyword",
-                        "size": 10,
-                        "min_doc_count": 0
+            "regularPrice": {
+                    "range": {
+                        "field": "regularPrice",
+                        "ranges": [
+                            { "key": "$", "to": 100.0 },
+                            { "key": "$$", "from": 100.0, "to": 250.0 },
+                            { "key": "$$$", "from": 250.0, "to": 500.0 },
+                            { "key": "$$$$", "from": 500.0, "to": 10000.0 }
+                        ]
                     }
                 },
-                "missing_images": {
-                    "missing": {
-                        "field": "images.keyword"
-                    }
+            "department": {
+                "terms": {
+                    "field": "department.keyword",
+                    "size": 10,
+                    "min_doc_count": 0
                 }
             },
+            "missing_images": {
+                "missing": {
+                    "field": "images.keyword"
+                }
+            }
+        },
         "highlight": {
             "fields": {
             "name": {},
             "shortDescription": {},
             "longDescription": {}
             }
-        }
-
-        }
+        }        
     }
     return query_obj
